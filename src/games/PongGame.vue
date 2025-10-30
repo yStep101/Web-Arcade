@@ -1,82 +1,264 @@
 <template>
   <div class="game">
     <h1>Pong</h1>
+    <div class="controls">
+      <button @click="startGame" :disabled="running">Start</button>
+      <button @click="pauseGame" :disabled="!running">Pause</button>
+      <button @click="resetGame">Reset</button>
+      <label>
+        <input type="checkbox" v-model="aiEnabled" />
+        AI Opponent
+      </label>
+    </div>
+
     <canvas ref="canvas" width="800" height="500"></canvas>
+
+    <div class="scoreboard">
+      <span>{{ leftScore }}</span>
+      <span> | </span>
+      <span>{{ rightScore }}</span>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 const canvas = ref(null)
+const running = ref(false)
+const aiEnabled = ref(true)
+const leftScore = ref(0)
+const rightScore = ref(0)
+
+let ctx, leftY, rightY, ball, keys, gameLoop, delayActive
+const paddleHeight = 80
+const paddleWidth = 10
+let audioCtx
+let ballMoving = false
+
+function initGame() {
+  leftY = 200
+  rightY = 200
+  ball = { x: 400, y: 250, dx: 0, dy: 0, size: 10 }
+  keys = {}
+  delayActive = false
+  ballMoving = false
+  draw()
+  resetBall()
+}
 
 onMounted(() => {
-  const ctx = canvas.value.getContext('2d')
-  const paddleHeight = 80,
-    paddleWidth = 10
-  let leftY = 200,
-    rightY = 200
-  const ball = { x: 400, y: 250, dx: 4, dy: 4, size: 10 }
-
-  const keys = {}
+  ctx = canvas.value.getContext('2d')
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)()
 
   window.addEventListener('keydown', (e) => (keys[e.key] = true))
   window.addEventListener('keyup', (e) => (keys[e.key] = false))
+  initGame()
+})
 
-  function draw() {
-    ctx.fillStyle = 'black'
-    ctx.fillRect(0, 0, 800, 500)
+onUnmounted(() => {
+  window.removeEventListener('keydown', (e) => (keys[e.key] = true))
+  window.removeEventListener('keyup', (e) => (keys[e.key] = false))
+})
 
-    // paddles
-    ctx.fillStyle = 'white'
-    ctx.fillRect(20, leftY, paddleWidth, paddleHeight)
-    ctx.fillRect(770, rightY, paddleWidth, paddleHeight)
+function playSound(frequency, duration = 0.1, type = 'square', volume = 0.3) {
+  const osc = audioCtx.createOscillator()
+  const gain = audioCtx.createGain()
+  osc.type = type
+  osc.frequency.value = frequency
+  gain.gain.value = volume
+  osc.connect(gain)
+  gain.connect(audioCtx.destination)
+  osc.start()
+  osc.stop(audioCtx.currentTime + duration)
+}
 
-    // ball
-    ctx.beginPath()
-    ctx.arc(ball.x, ball.y, ball.size, 0, Math.PI * 2)
-    ctx.fill()
+function playBounce() {
+  playSound(400 + Math.random() * 100, 0.05, 'square', 0.2)
+}
+function playWall() {
+  playSound(250, 0.08, 'sawtooth', 0.2)
+}
+function playScore() {
+  playSound(180, 0.3, 'triangle', 0.3)
+}
 
-    // movement
-    if (keys['w'] && leftY > 0) leftY -= 6
-    if (keys['s'] && leftY < 500 - paddleHeight) leftY += 6
+function startGame() {
+  if (!running.value) {
+    running.value = true
+    gameLoop = requestAnimationFrame(update)
+  }
+}
+
+function pauseGame() {
+  running.value = false
+  if (gameLoop) cancelAnimationFrame(gameLoop)
+}
+
+function resetGame() {
+  pauseGame()
+  leftScore.value = 0
+  rightScore.value = 0
+  initGame()
+}
+
+function update() {
+  draw()
+  movePaddles()
+  if (ballMoving && !delayActive) moveBall()
+  if (running.value) gameLoop = requestAnimationFrame(update)
+}
+
+function draw() {
+  ctx.fillStyle = 'black'
+  ctx.fillRect(0, 0, 800, 500)
+
+  // center line
+  ctx.strokeStyle = 'white'
+  ctx.setLineDash([5, 15])
+  ctx.beginPath()
+  ctx.moveTo(400, 0)
+  ctx.lineTo(400, 500)
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  // paddles
+  ctx.fillStyle = 'white'
+  ctx.fillRect(20, leftY, paddleWidth, paddleHeight)
+  ctx.fillRect(770, rightY, paddleWidth, paddleHeight)
+
+  // ball
+  ctx.beginPath()
+  ctx.arc(ball.x, ball.y, ball.size, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+function movePaddles() {
+  if (keys['w'] && leftY > 0) leftY -= 6
+  if (keys['s'] && leftY < 500 - paddleHeight) leftY += 6
+
+  if (!aiEnabled.value) {
     if (keys['ArrowUp'] && rightY > 0) rightY -= 6
     if (keys['ArrowDown'] && rightY < 500 - paddleHeight) rightY += 6
+  } else {
+    // Improved AI logic — reacts but can still miss
+    const aiSpeed = 3.3
+    const errorMargin = Math.random() * 70 - 35 // imperfect tracking
+    const targetY = ball.y - paddleHeight / 2 + errorMargin
 
-    ball.x += ball.dx
-    ball.y += ball.dy
+    if (targetY < rightY) rightY -= aiSpeed
+    if (targetY > rightY) rightY += aiSpeed
+    rightY = Math.max(0, Math.min(500 - paddleHeight, rightY))
+  }
+}
 
-    // wall bounce
-    if (ball.y + ball.size > 500 || ball.y - ball.size < 0) ball.dy *= -1
+function moveBall() {
+  ball.x += ball.dx
+  ball.y += ball.dy
 
-    // paddle bounce
-    if (ball.x - ball.size < 30 && ball.y > leftY && ball.y < leftY + paddleHeight) ball.dx *= -1
-
-    if (ball.x + ball.size > 770 && ball.y > rightY && ball.y < rightY + paddleHeight) ball.dx *= -1
-
-    // reset if ball out of bounds
-    if (ball.x < 0 || ball.x > 800) {
-      ball.x = 400
-      ball.y = 250
-      ball.dx *= -1
-    }
-
-    requestAnimationFrame(draw)
+  // wall bounce
+  if (ball.y + ball.size > 500 || ball.y - ball.size < 0) {
+    ball.dy *= -1
+    playWall()
   }
 
-  draw()
-})
+  // paddle bounce
+  if (ball.x - ball.size < 30 && ball.y > leftY && ball.y < leftY + paddleHeight) {
+    ball.dx *= -1.05
+    ball.x = 30 + ball.size
+    playBounce()
+  }
+  if (ball.x + ball.size > 770 && ball.y > rightY && ball.y < rightY + paddleHeight) {
+    ball.dx *= -1.05
+    ball.x = 770 - ball.size
+    playBounce()
+  }
+
+  // scoring
+  if (ball.x < 0) {
+    rightScore.value++
+    playScore()
+    scoreDelay(false)
+  } else if (ball.x > 800) {
+    leftScore.value++
+    playScore()
+    scoreDelay(true)
+  }
+}
+
+function scoreDelay(toLeft) {
+  delayActive = true
+  resetBall(toLeft)
+  setTimeout(() => (delayActive = false), 1000)
+}
+
+function resetBall(toLeft) {
+  ball.x = 400
+  ball.y = 250
+
+  // randomize launch direction and angle
+  const speed = 5
+  const angle = (Math.random() * Math.PI) / 2 - Math.PI / 4 // -45° to +45°
+  const direction = toLeft ? -1 : Math.random() < 0.5 ? -1 : 1
+  const verticalDir = Math.random() < 0.5 ? -1 : 1
+
+  ball.dx = direction * speed * Math.cos(angle)
+  ball.dy = verticalDir * speed * Math.sin(angle)
+
+  // delay before move
+  ballMoving = false
+  setTimeout(() => (ballMoving = true), 800)
+}
 </script>
 
 <style scoped>
+.game {
+  text-align: center;
+  color: white;
+  font-family: 'Orbitron', sans-serif;
+}
 canvas {
   background: black;
   display: block;
   margin: 20px auto;
-  border: 2px solid white;
+  border: 2px solid #00ffcc;
+  box-shadow: 0 0 10px #00ffcc;
 }
 h1 {
-  text-align: center;
-  color: white;
+  color: #00ffcc;
+  text-shadow: 0 0 10px #00ffcc;
+}
+.scoreboard {
+  margin-top: 10px;
+  font-size: 24px;
+  color: #00ffcc;
+  text-shadow: 0 0 8px #00ffcc;
+}
+.controls {
+  margin: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+button {
+  background: transparent;
+  color: #00ffcc;
+  border: 1px solid #00ffcc;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: 0.2s;
+}
+button:hover:not(:disabled) {
+  background: #00ffcc;
+  color: black;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+label {
+  font-size: 14px;
+  color: #00ffcc;
 }
 </style>
