@@ -1,18 +1,12 @@
 <template>
   <div class="hub">
     <Navbar />
-
     <div class="content">
       <!-- 🎮 LEFT: Games -->
       <section class="left">
         <h1>🎮 Web Arcade</h1>
 
-        <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="Search games..."
-          class="search-bar"
-        />
+        <input type="text" v-model="searchQuery" placeholder="Search games..." class="search-bar" />
 
         <div class="games">
           <GameCard
@@ -47,15 +41,13 @@ import pacmanImg from '../assets/images/pacman.png'
 const games = [
   { title: 'Pong (2 Player)', link: '/game/pong', thumbnail: pongImg },
   { title: 'Snake', link: '/game/snake', thumbnail: snakeImg },
-  { title: 'Pacman', link: '/game/pacman', thumbnail: pacmanImg },
+  { title: 'Racer Game', link: '/game/racer', thumbnail: pacmanImg },
 ]
 
 const searchQuery = ref('')
 
 const filteredGames = computed(() =>
-  games.filter(game =>
-    game.title.toLowerCase().includes(searchQuery.value.toLowerCase())
-  )
+  games.filter((game) => game.title.toLowerCase().includes(searchQuery.value.toLowerCase())),
 )
 </script>
 
@@ -93,7 +85,9 @@ const filteredGames = computed(() =>
 
 h1 {
   color: #00ffcc;
-  text-shadow: 0 0 12px #00ffcc, 0 0 24px #009988;
+  text-shadow:
+    0 0 12px #00ffcc,
+    0 0 24px #009988;
   font-size: 2rem;
   margin-bottom: 1rem;
 }
