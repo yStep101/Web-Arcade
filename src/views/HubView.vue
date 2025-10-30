@@ -5,7 +5,7 @@
     <div class="games">
       <GameCard title="Pong (2 Player)" link="/game/pong" />
       <GameCard title="Snake" link="/game/snake" />
-      <GameCard title="Pacman" link="/game/pacman" />
+      <GameCard title="Arcade Racer" link="/game/racer" />
     </div>
     <Leaderboard />
   </div>
