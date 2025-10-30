@@ -1,6 +1,10 @@
 <template>
   <div class="game">
-    <h1>Pong</h1>
+    <div class="top-bar">
+      <button class="back-btn" @click="goBack">⬅ Back to Hub</button>
+      <h1>Pong</h1>
+    </div>
+
     <div class="controls">
       <button @click="startGame" :disabled="running">Start</button>
       <button @click="pauseGame" :disabled="!running">Pause</button>
@@ -23,7 +27,9 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const canvas = ref(null)
 const running = ref(false)
 const aiEnabled = ref(true)
@@ -35,6 +41,11 @@ const paddleHeight = 80
 const paddleWidth = 10
 let audioCtx
 let ballMoving = false
+
+function goBack() {
+  if (gameLoop) cancelAnimationFrame(gameLoop)
+  router.push('/hub')
+}
 
 function initGame() {
   leftY = 200
@@ -113,7 +124,6 @@ function draw() {
   ctx.fillStyle = 'black'
   ctx.fillRect(0, 0, 800, 500)
 
-  // center line
   ctx.strokeStyle = 'white'
   ctx.setLineDash([5, 15])
   ctx.beginPath()
@@ -122,12 +132,10 @@ function draw() {
   ctx.stroke()
   ctx.setLineDash([])
 
-  // paddles
   ctx.fillStyle = 'white'
   ctx.fillRect(20, leftY, paddleWidth, paddleHeight)
   ctx.fillRect(770, rightY, paddleWidth, paddleHeight)
 
-  // ball
   ctx.beginPath()
   ctx.arc(ball.x, ball.y, ball.size, 0, Math.PI * 2)
   ctx.fill()
@@ -141,11 +149,9 @@ function movePaddles() {
     if (keys['ArrowUp'] && rightY > 0) rightY -= 6
     if (keys['ArrowDown'] && rightY < 500 - paddleHeight) rightY += 6
   } else {
-    // Improved AI logic — reacts but can still miss
     const aiSpeed = 3.3
-    const errorMargin = Math.random() * 70 - 35 // imperfect tracking
+    const errorMargin = Math.random() * 70 - 35
     const targetY = ball.y - paddleHeight / 2 + errorMargin
-
     if (targetY < rightY) rightY -= aiSpeed
     if (targetY > rightY) rightY += aiSpeed
     rightY = Math.max(0, Math.min(500 - paddleHeight, rightY))
@@ -156,13 +162,11 @@ function moveBall() {
   ball.x += ball.dx
   ball.y += ball.dy
 
-  // wall bounce
   if (ball.y + ball.size > 500 || ball.y - ball.size < 0) {
     ball.dy *= -1
     playWall()
   }
 
-  // paddle bounce
   if (ball.x - ball.size < 30 && ball.y > leftY && ball.y < leftY + paddleHeight) {
     ball.dx *= -1.05
     ball.x = 30 + ball.size
@@ -174,7 +178,6 @@ function moveBall() {
     playBounce()
   }
 
-  // scoring
   if (ball.x < 0) {
     rightScore.value++
     playScore()
@@ -195,17 +198,12 @@ function scoreDelay(toLeft) {
 function resetBall(toLeft) {
   ball.x = 400
   ball.y = 250
-
-  // randomize launch direction and angle
   const speed = 5
-  const angle = (Math.random() * Math.PI) / 2 - Math.PI / 4 // -45° to +45°
+  const angle = (Math.random() * Math.PI) / 2 - Math.PI / 4
   const direction = toLeft ? -1 : Math.random() < 0.5 ? -1 : 1
   const verticalDir = Math.random() < 0.5 ? -1 : 1
-
   ball.dx = direction * speed * Math.cos(angle)
   ball.dy = verticalDir * speed * Math.sin(angle)
-
-  // delay before move
   ballMoving = false
   setTimeout(() => (ballMoving = true), 800)
 }
@@ -217,6 +215,33 @@ function resetBall(toLeft) {
   color: white;
   font-family: 'Orbitron', sans-serif;
 }
+
+.top-bar {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.back-btn {
+  position: absolute;
+  left: 20px;
+  top: 5px;
+  background: #00ffcc;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-family: 'Orbitron', sans-serif;
+  cursor: pointer;
+  color: black;
+  transition: 0.2s;
+}
+
+.back-btn:hover {
+  background: #00cc99;
+}
+
 canvas {
   background: black;
   display: block;
@@ -224,22 +249,26 @@ canvas {
   border: 2px solid #00ffcc;
   box-shadow: 0 0 10px #00ffcc;
 }
+
 h1 {
   color: #00ffcc;
   text-shadow: 0 0 10px #00ffcc;
 }
+
 .scoreboard {
   margin-top: 10px;
   font-size: 24px;
   color: #00ffcc;
   text-shadow: 0 0 8px #00ffcc;
 }
+
 .controls {
   margin: 10px;
   display: flex;
   justify-content: center;
   gap: 10px;
 }
+
 button {
   background: transparent;
   color: #00ffcc;
@@ -249,14 +278,17 @@ button {
   font-family: inherit;
   transition: 0.2s;
 }
+
 button:hover:not(:disabled) {
   background: #00ffcc;
   color: black;
 }
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
 label {
   font-size: 14px;
   color: #00ffcc;
