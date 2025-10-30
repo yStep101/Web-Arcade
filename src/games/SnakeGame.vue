@@ -77,14 +77,18 @@ function playMunchSound() {
   osc.stop(audioCtx.currentTime + 0.2)
 }
 
-// 🚫 Stop background music
 function stopAudio() {
   if (bgOscillator) {
-    try { bgOscillator.stop() } catch {}
+    try {
+      bgOscillator.stop()
+    } catch (e) {
+     console.log(e)
+    }
     bgOscillator.disconnect()
   }
   if (audioCtx) audioCtx.close()
 }
+
 
 function goBack() {
   stopAudio()
