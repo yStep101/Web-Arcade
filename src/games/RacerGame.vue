@@ -4,6 +4,7 @@
       <div>Score: {{ score.toFixed(2) }}</div>
       <div>Lives: {{ lives }}</div>
       <div>Speed: {{ Math.floor(speed) }}</div>
+      <div>Mode: {{ difficulty.toUpperCase() }}</div>
       <div class="controls">← / → or A / D to steer • ↑ to boost</div>
     </div>
 
@@ -24,7 +25,6 @@
         <p v-if="gameState === 'menu'">
           Dodge incoming vehicles.<br />
           Collect coins if you can.<br />
-          Beat the other cars.<br />
           Survive for as long as you can.<br />
         </p>
         <p v-if="gameState === 'over'">
@@ -32,6 +32,24 @@
         </p>
         <button @click="startGame">{{ gameState === 'menu' ? 'Start' : 'Restart' }}</button>
         <button v-if="gameState === 'paused'" @click="resumeGame">Resume</button>
+        <!-- Difficulty selector -->
+        <div v-if="gameState === 'menu'" style="margin-top: 16px">
+          <p style="font-size: 12px; color: #e2b33c; margin-bottom: 8px; text-align: center">
+            Select Difficulty:
+          </p>
+
+          <div style="display: flex; gap: 10px; justify-content: center">
+            <button
+              v-for="mode in Object.keys(difficultySettings)"
+              :key="mode"
+              @click="setDifficulty(mode)"
+              :class="['difficulty-btn', { selected: difficulty.value === mode }]"
+              :style="{ '--btn-color': difficultySettings[mode].color }"
+            >
+              {{ mode.charAt(0).toUpperCase() + mode.slice(1) }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -54,15 +72,39 @@ const gameState = ref('menu') // 'menu' | 'playing' | 'paused' | 'over'
 const highScoreKey = 'racer_highscore_v1'
 const highScore = ref(parseInt(localStorage.getItem(highScoreKey) || '0'))
 const spriteScale = {
-  player: 1.2,
+  player: 1.5,
   enemy: 1.4,
-  coin: 1.0,
+  coin: 1.3,
+}
+const difficulty = ref('intermediate')
+const difficultySettings = {
+  easy: {
+    speedMultiplier: 0.8,
+    carSpawnInterval: 100, // frames
+    coinSpawnInterval: 180,
+    lives: 4,
+    color: '#22c55e', // green
+  },
+  intermediate: {
+    speedMultiplier: 1,
+    carSpawnInterval: 60,
+    coinSpawnInterval: 130,
+    lives: 3,
+    color: '#eab308', // yellow
+  },
+  hard: {
+    speedMultiplier: 1.3,
+    carSpawnInterval: 30,
+    coinSpawnInterval: 90,
+    lives: 2,
+    color: '#ef4444', // red
+  },
 }
 
 // Player
 const player = {
   x: baseWidth / 2,
-  y: baseHeight - 80,
+  y: baseHeight - 100,
   w: 28,
   h: 48,
   vx: 0,
@@ -76,19 +118,22 @@ let obstacles = []
 let pickups = []
 let frame = 0
 
-function randInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
+// function randInt(min, max) {
+//   return Math.floor(Math.random() * (max - min + 1)) + min
+// }
 
 function resetGame() {
+  const settings = difficultySettings[difficulty.value]
   score.value = 0
-  lives.value = 3
-  speed.value = 2
+  lives.value = settings.lives
+  speed.value = 2 * settings.speedMultiplier
   player.x = baseWidth / 2
   player.vx = 0
   obstacles = []
   pickups = []
   frame = 0
+  invincible = false
+  invincibleTimer = 0
 }
 
 function startGame() {
@@ -105,10 +150,20 @@ function resumeGame() {
 
 function endGame() {
   gameState.value = 'over'
+  invincible = false
+  invincibleTimer = 0
+  speed.value = 0 // stop movement immediately
+  obstacles = []
+  pickups = []
+
   if (score.value > highScore.value) {
     highScore.value = score.value
     localStorage.setItem(highScoreKey, String(highScore.value))
   }
+}
+
+function setDifficulty(mode) {
+  difficulty.value = mode
 }
 
 function onKeyDown(e) {
@@ -129,99 +184,155 @@ function onKeyUp(e) {
 }
 
 function spawnObstacle() {
-  const laneCount = 3
-  const laneWidth = (baseWidth - 96) / laneCount // same road size, just divided into lanes
-  const laneXPositions = Array.from(
+  const roadX = 48
+  const roadW = baseWidth - roadX * 2
+  const laneCount = 5
+  const laneWidth = roadW / laneCount
+  const carW = 80 * spriteScale.enemy
+
+  const lanes = Array.from(
     { length: laneCount },
-    (_, i) => 48 + i * laneWidth + laneWidth / 2,
+    (_, i) => roadX + laneWidth * i + laneWidth / 2 - carW / 2,
   )
 
-  const laneX = laneXPositions[Math.floor(Math.random() * laneXPositions.length)]
-  const obsW = randInt(50, 80) * spriteScale.enemy
-  const obsH = randInt(28, 48) * spriteScale.enemy
+  const usedLanes = obstacles.map((o) => o.lane)
+  const available = lanes.filter((lane) => !usedLanes.includes(lane))
+  if (available.length === 0) return
 
-  obstacles.push({
-    x: laneX - obsW / 2,
-    y: -obsH,
-    w: obsW,
-    h: obsH,
-    type: 'car',
-  })
+  const lane = available[Math.floor(Math.random() * available.length)]
+  const o = {
+    x: lane,
+    y: -200 - Math.random() * 100,
+    w: 80,
+    h: 120,
+    lane,
+    type: 'enemy',
+  }
+
+  obstacles.push(o)
 }
 
 function spawnPickup() {
-  const laneCount = 3
-  const laneWidth = (baseWidth - 96) / laneCount
-  const laneXPositions = Array.from(
-    { length: laneCount },
-    (_, i) => 48 + i * laneWidth + laneWidth / 2,
-  )
-
-  const laneX = laneXPositions[Math.floor(Math.random() * laneXPositions.length)]
+  const roadX = 48 // same value used in your spawnObstacle and spawnPickup
+  const roadW = baseWidth - roadX * 2
+  const laneCount = 5
+  const laneWidth = roadW / laneCount
   const coinSize = 14 * spriteScale.coin
 
+  // Lane center X positions (same as obstacles)
+  const lanes = Array.from(
+    { length: laneCount },
+    (_, i) => roadX + laneWidth * i + laneWidth / 2 - coinSize / 2,
+  )
+
+  // Filter out lanes where an obstacle already exists nearby
+  const safeLanes = lanes.filter((laneX) => {
+    return !obstacles.some((o) => {
+      const horizontalOverlap = Math.abs(o.x - laneX) < 40 // avoid same/close lane
+      const verticalProximity = o.y < 200 // avoid spawning too close above a car
+      return horizontalOverlap && verticalProximity
+    })
+  })
+
+  // No free lane? Skip spawn
+  if (safeLanes.length === 0) return
+
+  // Pick a random safe lane
+  const lane = safeLanes[Math.floor(Math.random() * safeLanes.length)]
+
   pickups.push({
-    x: laneX - coinSize / 2,
-    y: -coinSize,
+    x: lane,
+    y: -coinSize - Math.random() * 60,
     w: coinSize,
     h: coinSize,
     kind: 'coin',
   })
 }
 
+let roadOffset = 0
+let invincible = false
+let invincibleTimer = 0
+
 function loop() {
   if (!canvasRef.value || gameState.value !== 'playing') return
 
-  // --- Per-type sprite scales ---
-  const spriteScale = {
-    player: 1.25,
-    enemy: 1.4,
-    coin: 1.1,
-  }
-
   frame++
 
-  // --- Speed ramp ---
-  if (frame % 600 === 0) speed.value += 0.5
+  const spriteScale = {
+    player: 1.5,
+    enemy: 1.4,
+    coin: 1.5,
+  }
 
-  // --- Spawns ---
-  if (frame % Math.max(30, Math.floor(60 - speed.value * 5)) === 0) spawnObstacle()
-  if (frame % 180 === 0) spawnPickup()
+  // --- Smooth speed (ease acceleration/deceleration) ---
+  const targetSpeed = keys.boost ? 7 : 2.5
+  speed.value += (targetSpeed - speed.value) * 0.05
 
-  // --- Movement / Control ---
-  const accel = 0.4
+  // --- Smooth continuous road motion ---
+  // --- Smooth continuous road motion (downward) ---
+  // Road scrolls consistently with speed, but scaled to look natural
+  roadOffset = (roadOffset + speed.value * 2.2) % 48
+
+  // --- Spawning (less frequent & well spaced) ---
+  const settings = difficultySettings[difficulty.value]
+
+  // --- Car spawn ---
+  if (frame % settings.carSpawnInterval === 0) {
+    spawnObstacle()
+  }
+
+  // --- Coin spawn ---
+  if (frame % settings.coinSpawnInterval === 0) {
+    spawnPickup()
+  }
+  // --- Player control ---
+  const accel = 0.7 // faster response
   if (keys.left) player.vx -= accel
   if (keys.right) player.vx += accel
-  player.vx *= 0.86
+  player.vx *= 0.9 // less drag so it feels smooth
   player.x += player.vx
 
-  const margin = 24
-  player.x = Math.max(margin, Math.min(baseWidth - player.w - margin, player.x))
+  // Prevent car from moving onto the pavement
+  const roadX = 48
+  const roadW = baseWidth - roadX * 2
+  const playerWidth = player.w * spriteScale.player
 
-  // --- Boost control ---
-  if (keys.boost) {
-    speed.value = Math.min(8, speed.value + 0.06)
-    score.value += 0.2
-  } else {
-    speed.value = Math.max(2, speed.value - 0.02)
-  }
+  const minX = roadX // left edge of road
+  const maxX = roadX + roadW - playerWidth // right edge of road
+
+  if (player.x < minX) player.x = minX
+  if (player.x > maxX) player.x = maxX
 
   // --- Update obstacles ---
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const o = obstacles[i]
-    o.y += speed.value + o.h / 12
+    o.y += speed.value * 1.6
     o.wScaled = o.w * spriteScale.enemy
     o.hScaled = o.h * spriteScale.enemy
 
-    if (o.y > baseHeight + 50) obstacles.splice(i, 1)
+    // Remove offscreen
+    if (o.y > baseHeight + 60) {
+      obstacles.splice(i, 1)
+      continue
+    }
+
+    // Collision only if not invincible
+    // Collision only if not invincible
     if (
+      !invincible &&
       rectIntersect(
         { ...o, w: o.wScaled, h: o.hScaled },
         { ...player, w: player.w * spriteScale.player, h: player.h * spriteScale.player },
       )
     ) {
-      obstacles.splice(i, 1)
+      // --- Collision ---
       lives.value--
+      invincible = true
+      invincibleTimer = 120 // ~2 seconds at 60fps
+
+      // --- Slow down player temporarily ---
+      speed.value = Math.max(1.2, speed.value * 0.4)
+
       if (lives.value <= 0) endGame()
     }
   }
@@ -229,15 +340,20 @@ function loop() {
   // --- Update pickups ---
   for (let i = pickups.length - 1; i >= 0; i--) {
     const p = pickups[i]
-    p.y += speed.value
+    p.y += speed.value * 1.4
     p.wScaled = p.w * spriteScale.coin
     p.hScaled = p.h * spriteScale.coin
 
-    if (p.y > baseHeight + 20) pickups.splice(i, 1)
+    if (p.y > baseHeight + 20) {
+      pickups.splice(i, 1)
+      continue
+    }
+
     if (
       rectIntersect(
         { ...p, w: p.wScaled, h: p.hScaled },
         { ...player, w: player.w * spriteScale.player, h: player.h * spriteScale.player },
+        'coin',
       )
     ) {
       pickups.splice(i, 1)
@@ -245,11 +361,74 @@ function loop() {
     }
   }
 
-  score.value += 0.02
+  // --- Invincibility flicker ---
+  if (invincible) {
+    invincibleTimer--
+    if (invincibleTimer <= 0) invincible = false
+  }
 
-  // --- Render everything with shadows ---
+  // --- Score growth ---
+  score.value += 0.015 * speed.value
+
+  // --- Render everything ---
   render(spriteScale)
   requestAnimationFrame(loop)
+}
+
+function render(spriteScale) {
+  if (!ctx) return
+  ctx.fillStyle = '#0b1220'
+  ctx.fillRect(0, 0, baseWidth, baseHeight)
+
+  const roadX = 48
+  const roadW = baseWidth - roadX * 2
+  ctx.fillStyle = '#262626'
+  ctx.fillRect(roadX, 0, roadW, baseHeight)
+
+  // --- Center dashed line ---
+  ctx.strokeStyle = '#e2b33c'
+  ctx.lineWidth = 4
+  ctx.setLineDash([24, 24])
+  ctx.beginPath()
+  ctx.moveTo(baseWidth / 2, roadOffset)
+  ctx.lineTo(baseWidth / 2, baseHeight + roadOffset)
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  // --- Pavement strips (synced with stripes) ---
+  // --- Pavement strips (smooth + same direction + tighter spacing) ---
+  // --- Pavement strips (synced speed + smooth motion) ---
+  const pavementSpacing = 24
+  const scroll = -(roadOffset % pavementSpacing)
+
+  for (let y = -scroll; y < baseHeight + pavementSpacing; y += pavementSpacing) {
+    ctx.fillStyle = '#1f2937'
+    ctx.fillRect(roadX - 24, y, 16, 16)
+    ctx.fillRect(roadX + roadW + 8, y, 16, 16)
+  }
+
+  // Draw pickups and cars
+  pickups.forEach((p) =>
+    drawPixelCoin(ctx, p.x, p.y, p.w * spriteScale.coin, p.h * spriteScale.coin),
+  )
+  obstacles.forEach((o) =>
+    drawPixelCar(ctx, o.x, o.y, o.w * spriteScale.enemy, o.h * spriteScale.enemy),
+  )
+
+  // Flicker player if invincible
+  if (!invincible || frame % 6 < 3) {
+    drawPlayer(
+      ctx,
+      player.x,
+      player.y,
+      player.w * spriteScale.player,
+      player.h * spriteScale.player,
+    )
+  }
+
+  ctx.fillStyle = '#fff'
+  ctx.font = '16px "Press Start 2P", monospace'
+  ctx.fillText('S:' + score.value.toFixed(2), 12, 24)
 }
 
 function rectIntersect(a, b, type = 'enemy') {
@@ -262,77 +441,152 @@ function rectIntersect(a, b, type = 'enemy') {
   )
 }
 
-function render() {
-  if (!ctx) return
-  ctx.fillStyle = '#0b1220'
-  ctx.fillRect(0, 0, baseWidth, baseHeight)
+// function drawShadow(x, y, w, h) {
+//   ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
+//   ctx.fillRect(x + 4, y + 6, w, h / 10)
+// }
 
-  const roadX = 48
-  const roadW = baseWidth - roadX * 2
-  ctx.fillStyle = '#262626'
-  ctx.fillRect(roadX, 0, roadW, baseHeight)
+function drawPixelCar(ctx, x, y, w, h, isEnemy = false) {
+  ctx.save()
 
-  ctx.strokeStyle = '#e2b33c'
-  ctx.lineWidth = 4
-  ctx.setLineDash([24, 24])
-  ctx.beginPath()
-  ctx.moveTo(baseWidth / 2, -(frame * speed.value) % 48)
-  ctx.lineTo(baseWidth / 2, baseHeight)
-  ctx.stroke()
-  ctx.setLineDash([])
-
-  for (let y = -(frame * speed.value) % 32; y < baseHeight; y += 32) {
-    ctx.fillStyle = '#1f2937'
-    ctx.fillRect(roadX - 24, y, 16, 20)
-    ctx.fillRect(roadX + roadW + 8, y + 12, 16, 20)
+  if (isEnemy) {
+    // Flip vertically around the car’s center
+    ctx.translate(x + w / 2, y + h / 2)
+    ctx.rotate(Math.PI) // 180 degrees
+    ctx.translate(-x - w / 2, -y - h / 2)
   }
 
-  pickups.forEach((p) => drawPixelCoin(p.x, p.y))
-  obstacles.forEach((o) => drawPixelCar(o.x, o.y, o.w, o.h))
-  drawPlayer(player.x, player.y)
+  // --- Shadow ---
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+  ctx.shadowBlur = 10
+  ctx.shadowOffsetY = 5
 
-  ctx.fillStyle = '#fff'
-  ctx.font = '16px "Press Start 2P", monospace'
-  ctx.fillText('S:' + score.value.toFixed(2), 12, 24)
-}
+  // --- Body gradient ---
+  const gradient = ctx.createLinearGradient(x, y, x, y + h)
+  gradient.addColorStop(0, '#c40404')
+  gradient.addColorStop(0.5, '#7d0b17')
+  gradient.addColorStop(1, '#610a1a')
 
-function drawShadow(x, y, w, h) {
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
-  ctx.fillRect(x + 4, y + 6, w, h / 10)
-}
-
-function drawPixelCar(x, y, w, h) {
-  w *= spriteScale.enemy
-  h *= spriteScale.enemy
-  drawShadow(x, y, w, h)
-  ctx.fillStyle = '#8b1e3f'
+  ctx.fillStyle = gradient
   ctx.fillRect(x, y, w, h)
-  ctx.fillStyle = '#cfe8ff'
-  ctx.fillRect(x + 8, y + 8, Math.max(12, w - 16), Math.max(12, h - 20))
-  ctx.fillStyle = '#111'
-  ctx.fillRect(x + 4, y + h - 8, 12, 6)
-  ctx.fillRect(x + w - 16, y + h - 8, 12, 6)
+
+  // --- Border outline ---
+  ctx.shadowColor = 'transparent'
+  ctx.lineWidth = 4
+  ctx.strokeStyle = '#111'
+  ctx.strokeRect(x, y, w, h)
+
+  // --- Roof highlight ---
+  const roofGrad = ctx.createLinearGradient(x, y + h * 0.35, x, y + h * 0.65)
+  roofGrad.addColorStop(0, 'rgba(255,255,255,0.15)')
+  roofGrad.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = roofGrad
+  ctx.fillRect(x + w * 0.2, y + h * 0.35, w * 0.6, h * 0.3)
+
+  // --- Windshield ---
+  ctx.fillStyle = '#0d0d0d'
+  ctx.fillRect(x + w * 0.15, y + h * 0.15, w * 0.7, h * 0.2)
+
+  // --- Headlights ---
+  ctx.fillStyle = '#e6e6e6'
+  ctx.fillRect(x + w * 0.1, y + h * 0.02, w * 0.25, h * 0.05)
+  ctx.fillRect(x + w * 0.65, y + h * 0.02, w * 0.25, h * 0.05)
+
+  // --- Tail lights ---
+  ctx.fillStyle = '#f2a305'
+  ctx.fillRect(x + w * 0.1, y + h * 0.93, w * 0.25, h * 0.05)
+  ctx.fillRect(x + w * 0.65, y + h * 0.93, w * 0.25, h * 0.05)
+
+  ctx.restore()
 }
 
-function drawPlayer(x, y) {
-  const w = player.w * spriteScale.player
-  const h = player.h * spriteScale.player
-  drawShadow(x, y, w, h)
-  ctx.fillStyle = '#2dd4bf'
+function drawPlayer(ctx, x, y, w, h) {
+  ctx.save()
+
+  // --- Shadow ---
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.4)'
+  ctx.shadowBlur = 12
+  ctx.shadowOffsetY = 6
+
+  // --- Car body with gradient ---
+  const gradient = ctx.createLinearGradient(x, y, x, y + h)
+  gradient.addColorStop(0, '#ffa84d')
+  gradient.addColorStop(0.5, '#ff7b00')
+  gradient.addColorStop(1, '#b35900')
+
+  ctx.fillStyle = gradient
   ctx.fillRect(x, y, w, h)
-  ctx.fillStyle = '#0369a1'
-  ctx.fillRect(x + 6, y + 8, w - 12, 16)
-  ctx.fillStyle = '#111'
-  ctx.fillRect(x + 2, y + h - 8, 10, 6)
-  ctx.fillRect(x + w - 12, y + h - 8, 10, 6)
+
+  // --- Border outline ---
+  ctx.shadowColor = 'transparent' // disable shadow for stroke
+  ctx.lineWidth = 3
+  ctx.strokeStyle = '#222'
+  ctx.strokeRect(x, y, w, h)
+
+  // --- Windshield ---
+  ctx.fillStyle = '#1c1c1c'
+  ctx.fillRect(x + w * 0.15, y + h * 0.15, w * 0.7, h * 0.2)
+
+  // --- Roof reflection ---
+  const roofGrad = ctx.createLinearGradient(x, y + h * 0.4, x, y + h * 0.7)
+  roofGrad.addColorStop(0, 'rgba(255,255,255,0.3)')
+  roofGrad.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = roofGrad
+  ctx.fillRect(x + w * 0.2, y + h * 0.4, w * 0.6, h * 0.3)
+
+  // --- Headlights ---
+  ctx.fillStyle = '#ffffcc'
+  ctx.fillRect(x + w * 0.1, y + h * 0.02, w * 0.25, h * 0.05)
+  ctx.fillRect(x + w * 0.65, y + h * 0.02, w * 0.25, h * 0.05)
+
+  // --- Tail lights ---
+  ctx.fillStyle = '#ff3333'
+  ctx.fillRect(x + w * 0.1, y + h * 0.93, w * 0.25, h * 0.05)
+  ctx.fillRect(x + w * 0.65, y + h * 0.93, w * 0.25, h * 0.05)
+
+  ctx.restore()
 }
 
-function drawPixelCoin(x, y) {
-  const s = 10 * spriteScale.coin
-  ctx.fillStyle = '#f6c85f'
-  ctx.fillRect(x, y, s, s)
-  ctx.fillStyle = '#b8860b'
-  ctx.fillRect(x + 2 * spriteScale, y + 4 * spriteScale, 6 * spriteScale, 2 * spriteScale)
+function drawPixelCoin(ctx, x, y, w, h) {
+  ctx.save()
+
+  // --- Shadow ---
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)'
+  ctx.shadowBlur = 6
+  ctx.shadowOffsetY = 3
+
+  // --- Coin body ---
+  const gradient = ctx.createRadialGradient(
+    x + w / 2,
+    y + h / 2,
+    w * 0.2,
+    x + w / 2,
+    y + h / 2,
+    w / 2,
+  )
+  gradient.addColorStop(0, '#fff6b3')
+  gradient.addColorStop(0.4, '#ffd633')
+  gradient.addColorStop(1, '#b38f00')
+
+  ctx.fillStyle = gradient
+  ctx.beginPath()
+  ctx.arc(x + w / 2, y + h / 2, w / 2, 0, Math.PI * 2)
+  ctx.fill()
+
+  // --- Rim outline ---
+  ctx.shadowColor = 'transparent'
+  ctx.lineWidth = 2
+  ctx.strokeStyle = '#996600'
+  ctx.stroke()
+
+  // --- Inner shine curve ---
+  ctx.beginPath()
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+  ctx.lineWidth = 1
+  ctx.arc(x + w / 2, y + h / 2, w * 0.35, -Math.PI / 3, Math.PI / 6)
+  ctx.stroke()
+
+  ctx.restore()
 }
 
 function fitCanvas() {
@@ -378,6 +632,7 @@ onBeforeUnmount(() => {
   user-select: none;
   -webkit-user-select: none;
   -ms-user-select: none;
+  text-shadow: none;
 }
 
 .racer-game {
@@ -452,5 +707,33 @@ canvas,
   color: #9ca3af;
   font-size: 12px;
   text-align: center;
+}
+.difficulty-btn {
+  background-color: v-bind('--btn-color'); /* key part */
+  border: 2px solid transparent;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.25s ease;
+}
+
+.difficulty-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 10px var(--btn-color);
+}
+
+.difficulty-btn.selected {
+  border: 3px solid #fff;
+  transform: scale(1.15);
+  box-shadow:
+    0 0 16px var(--btn-color),
+    0 0 32px var(--btn-color);
+}
+
+.difficulty-btn:active {
+  transform: scale(1.05);
+  filter: brightness(1.2);
 }
 </style>
