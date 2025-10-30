@@ -15,6 +15,7 @@ const router = createRouter({
     { path: '/game/pong', name: 'pong', component: PongGame },
     { path: '/game/snake', name: 'snake', component: SnakeGame },
     { path: '/game/pacman', name: 'pacman', component: PacmanGame },
+    { path: '/settings',  name: 'Settings',  component: () => import('../views/SettingsView.vue') },
   ],
 })
 
