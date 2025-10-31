@@ -20,6 +20,9 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import { useScoreSubmit } from '@/composables/useScoreSubmit'
+
+const { trySubmit, resetBest } = useScoreSubmit('Snake')
 
 const router = useRouter()
 const canvas = ref(null)
@@ -82,13 +85,12 @@ function stopAudio() {
     try {
       bgOscillator.stop()
     } catch (e) {
-     console.log(e)
+      console.log(e)
     }
     bgOscillator.disconnect()
   }
   if (audioCtx) audioCtx.close()
 }
-
 
 function goBack() {
   stopAudio()
@@ -97,6 +99,7 @@ function goBack() {
 }
 
 function restart() {
+  resetBest()
   score.value = 0
   gameOver.value = false
   snake = [{ x: 9 * box, y: 10 * box }]
@@ -123,7 +126,14 @@ function draw() {
     ctx.fillRect(snake[i].x, snake[i].y, box, box)
   }
 
-  const foodGrad = ctx.createRadialGradient(food.x + 10, food.y + 10, 2, food.x + 10, food.y + 10, 10)
+  const foodGrad = ctx.createRadialGradient(
+    food.x + 10,
+    food.y + 10,
+    2,
+    food.x + 10,
+    food.y + 10,
+    10,
+  )
   foodGrad.addColorStop(0, 'yellow')
   foodGrad.addColorStop(1, 'orange')
   ctx.shadowBlur = 15
@@ -141,6 +151,7 @@ function draw() {
 
   if (headX === food.x && headY === food.y) {
     score.value++
+    trySubmit(score.value)
     playMunchSound() // 🍎 play sound on eat
     food = {
       x: Math.floor(Math.random() * 19 + 1) * box,

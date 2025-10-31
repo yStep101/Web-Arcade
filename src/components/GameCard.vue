@@ -36,8 +36,7 @@ onMounted(() => {
     .filter((key) => key.endsWith(`_${props.title}_highscore`))
     .map((key) => parseInt(localStorage.getItem(key) || 0))
 
-  if (gameScores.length > 0)
-    globalHighScore.value = Math.max(...gameScores)
+  if (gameScores.length > 0) globalHighScore.value = Math.max(...gameScores)
 })
 </script>
 
@@ -50,7 +49,9 @@ onMounted(() => {
   width: 220px;
   text-align: center;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.3s ease;
   box-shadow: 0 0 10px #00ffcc55;
 }
 
