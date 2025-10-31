@@ -4,7 +4,8 @@ import HubView from '../views/HubView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import PongGame from '../games/PongGame.vue'
 import SnakeGame from '../games/SnakeGame.vue'
-import RacerGame from '@/games/RacerGame.vue'
+import RacerGame from '../games/RacerGame.vue'
+import TetrisGame from '../games/TetrisGame.vue' // ✅ Add this line
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -15,6 +16,7 @@ const router = createRouter({
     { path: '/game/pong', name: 'pong', component: PongGame },
     { path: '/game/snake', name: 'snake', component: SnakeGame },
     { path: '/game/racer', name: 'Racer', component: RacerGame },
+    { path: '/game/tetris', name: 'Tetris', component: TetrisGame }, // ✅ Add this route
     { path: '/settings', name: 'Settings', component: () => import('../views/SettingsView.vue') },
   ],
 })
