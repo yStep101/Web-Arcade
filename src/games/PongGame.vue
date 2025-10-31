@@ -21,6 +21,7 @@
       <span>{{ leftScore }}</span>
       <span> | </span>
       <span>{{ rightScore }}</span>
+      <div class="highscore">High Score: {{ highScore }}</div>
     </div>
   </div>
 </template>
@@ -38,6 +39,10 @@ const running = ref(false)
 const aiEnabled = ref(true)
 const leftScore = ref(0)
 const rightScore = ref(0)
+const highScore = ref(0)
+
+// get current user (saved during login)
+const currentUser = localStorage.getItem('currentUser') || 'guest'
 
 let ctx, leftY, rightY, ball, keys, gameLoop, delayActive
 const paddleHeight = 80
@@ -64,6 +69,10 @@ function initGame() {
 onMounted(() => {
   ctx = canvas.value.getContext('2d')
   audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+
+  // Load user's saved high score
+  const savedScore = localStorage.getItem(`${currentUser}_pong_highscore`)
+  if (savedScore) highScore.value = parseInt(savedScore)
 
   window.addEventListener('keydown', (e) => (keys[e.key] = true))
   window.addEventListener('keyup', (e) => (keys[e.key] = false))
@@ -185,13 +194,23 @@ function moveBall() {
   if (ball.x < 0) {
     rightScore.value++
     playScore()
+    checkHighScore()
     scoreDelay(false)
     trySubmit(rightScore.value)
   } else if (ball.x > 800) {
     leftScore.value++
     playScore()
+    checkHighScore()
     scoreDelay(true)
     trySubmit(leftScore.value)
+  }
+}
+
+function checkHighScore() {
+  // assuming player is left side
+  if (leftScore.value > highScore.value) {
+    highScore.value = leftScore.value
+    localStorage.setItem(`${currentUser}_pong_highscore`, highScore.value)
   }
 }
 
@@ -266,6 +285,13 @@ h1 {
   font-size: 24px;
   color: #00ffcc;
   text-shadow: 0 0 8px #00ffcc;
+}
+
+.highscore {
+  margin-top: 5px;
+  font-size: 18px;
+  color: #ff66cc;
+  text-shadow: 0 0 8px #ff66cc;
 }
 
 .controls {

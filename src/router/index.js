@@ -5,6 +5,7 @@ import ProfileView from '../views/ProfileView.vue'
 import PongGame from '../games/PongGame.vue'
 import SnakeGame from '../games/SnakeGame.vue'
 import RacerGame from '../games/RacerGame.vue'
+import TetrisGame from '../games/TetrisGame.vue' // ✅ Add this line
 import SettingsView from '../views/SettingsView.vue'
 import { getCurrentUser } from '@/utils/auth' // ✅ centralized auth import
 
@@ -19,6 +20,7 @@ const router = createRouter({
     { path: '/game/pong', name: 'pong', component: PongGame, meta: { requiresAuth: true } },
     { path: '/game/snake', name: 'snake', component: SnakeGame, meta: { requiresAuth: true } },
     { path: '/game/racer', name: 'racer', component: RacerGame, meta: { requiresAuth: true } },
+    { path: '/game/tetris', name: 'Tetris', component: TetrisGame, meta: { requiresAuth: true } },
     {
       path: '/leaderboard',
       name: 'leaderboard',
