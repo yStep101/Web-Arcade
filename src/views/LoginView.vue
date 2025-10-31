@@ -24,7 +24,8 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { registerUser, loginUser } from '../utils/auth'
+import { registerUser, loginUser } from '@/utils/leaderboard' // ✅ use backend API
+import { useScoreSubmit } from '@/composables/useScoreSubmit'
 
 const router = useRouter()
 const username = ref('')
@@ -32,42 +33,49 @@ const password = ref('')
 const mode = ref('login')
 const error = ref('')
 
+// also update composable username cache
+const { setUsername } = useScoreSubmit('Global')
+
 function toggleMode() {
   mode.value = mode.value === 'login' ? 'register' : 'login'
   error.value = ''
 }
 
-// ✅ Registration handler
-function handleRegister() {
+async function handleRegister() {
   if (!username.value.trim() || !password.value.trim()) {
     error.value = 'Please enter a username and password.'
     return
   }
 
-  const success = registerUser(username.value.trim(), password.value)
-  if (!success) {
-    error.value = 'Username already exists.'
-  } else {
-    error.value = ''
-    localStorage.setItem('currentUser', username.value.trim())
-    router.push({ name: 'hub' })
+  try {
+    const res = await registerUser(username.value.trim(), password.value)
+    if (res.success) {
+      localStorage.setItem('currentUser', username.value.trim())
+      setUsername(username.value.trim()) // sync with leaderboard
+      router.push({ name: 'hub' })
+    }
+  } catch (err) {
+    console.error(err)
+    error.value = err.response?.data?.error || 'Registration failed.'
   }
 }
 
-// ✅ Login handler
-function handleLogin() {
+async function handleLogin() {
   if (!username.value.trim() || !password.value.trim()) {
     error.value = 'Please enter a username and password.'
     return
   }
 
-  const success = loginUser(username.value.trim(), password.value)
-  if (!success) {
-    error.value = 'Invalid username or password.'
-  } else {
-    error.value = ''
-    localStorage.setItem('currentUser', username.value.trim()) // 🔑 store active user
-    router.push({ name: 'hub' }) // ✅ route after login
+  try {
+    const res = await loginUser(username.value.trim(), password.value)
+    if (res.success) {
+      localStorage.setItem('currentUser', username.value.trim())
+      setUsername(username.value.trim()) // sync with leaderboard
+      router.push({ name: 'hub' })
+    }
+  } catch (err) {
+    console.error(err)
+    error.value = err.response?.data?.error || 'Invalid username or password.'
   }
 }
 </script>

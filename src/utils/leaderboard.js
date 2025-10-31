@@ -1,7 +1,7 @@
 // src/utils/leaderboard.js
 import axios from 'axios'
 
-const API_BASE = 'http://localhost:4000'
+const API_BASE = 'http://localhost:4000' // your LAN backend
 
 // 🏆 Fetch leaderboard data
 export async function fetchLeaderboard() {
@@ -9,9 +9,9 @@ export async function fetchLeaderboard() {
   return res.data
 }
 
-// 📝 Submit score
-export async function submitScore(username, score) {
-  const res = await axios.post(`${API_BASE}/leaderboard`, { username, score })
+// 📝 Submit score (global, per game)
+export async function submitScore(username, score, game) {
+  const res = await axios.post(`${API_BASE}/leaderboard`, { username, score, game })
   return res.data
 }
 
@@ -27,5 +27,4 @@ export async function loginUser(username, password) {
   return res.data
 }
 
-// ✅ Compatibility alias for older imports
 export const getLeaderboard = fetchLeaderboard

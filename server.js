@@ -74,30 +74,52 @@ app.get('/leaderboard', (req, res) => {
 })
 
 app.post('/leaderboard', (req, res) => {
-  const { username, score } = req.body
-  if (!username || typeof score !== 'number') {
-    return res.status(400).json({ error: 'Invalid data' })
+  let { username, score, game } = req.body
+
+  // ✅ Sanitize inputs
+  username = (username || '').trim()
+  game = (game || '').trim()
+
+  // ❌ Reject if game is missing or invalid
+  if (!game || game.toLowerCase() === 'unknown' || game.toLowerCase() === 'unknown game') {
+    return res.status(400).json({ success: false, message: 'Invalid or missing game name.' })
   }
 
-  const data = loadData()
-  const existing = data.find((p) => p.username === username)
+  // ❌ Reject invalid username
+  if (!username) {
+    return res.status(400).json({ success: false, message: 'Username is required.' })
+  }
+
+  // ✅ Ensure score is a valid number
+  score = Number(score)
+  if (isNaN(score) || score < 0) {
+    return res.status(400).json({ success: false, message: 'Invalid score.' })
+  }
+
+  // 🏁 Continue saving to leaderboard (example)
+  // 🏁 Load current leaderboard
+  const leaderboard = loadData()
+
+  // ✅ Save or update user's best score per game
+  const existing = leaderboard.find((entry) => entry.username === username && entry.game === game)
 
   if (existing) {
-    existing.score = Math.max(existing.score, score) // keep best score
+    // update only if the new score is higher
+    if (score > existing.score) {
+      existing.score = score
+      console.log(`⬆️ Updated ${username}'s ${game} score to ${score}`)
+    } else {
+      console.log(
+        `⚠️ ${username}'s ${game} score (${score}) not higher than existing (${existing.score})`,
+      )
+    }
   } else {
-    data.push({ username, score })
+    leaderboard.push({ username, score, game })
+    console.log(`✅ Added new score: ${username} - ${game} (${score})`)
   }
 
-  data.sort((a, b) => b.score - a.score)
-  saveData(data)
-
-  // 🆙 Optional: update high score in users.json too
-  const users = loadUsers()
-  if (users[username]) {
-    users[username].stats.highScore = Math.max(users[username].stats.highScore || 0, score)
-    users[username].stats.gamesPlayed = (users[username].stats.gamesPlayed || 0) + 1
-    saveUsers(users)
-  }
+  // 💾 Persist to file
+  saveData(leaderboard)
 
   res.json({ success: true })
 })
