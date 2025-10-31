@@ -1,0 +1,30 @@
+{
+  "therealystep.blue@gmail.com": {
+    "password": "inigomontoya",
+    "stats": {
+      "gamesPlayed": 287,
+      "highScore": 22
+    }
+  },
+  "nepakirikiri@gmail.com": {
+    "password": "iammiyukisfather.",
+    "stats": {
+      "gamesPlayed": 1411,
+      "highScore": 149.13872272184062
+    }
+  },
+  "Rohan": {
+    "password": "inigomontoya",
+    "stats": {
+      "gamesPlayed": 0,
+      "highScore": 0
+    }
+  },
+  "Anakin": {
+    "password": "fatherhere",
+    "stats": {
+      "gamesPlayed": 0,
+      "highScore": 0
+    }
+  }
+}
