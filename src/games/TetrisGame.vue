@@ -169,7 +169,7 @@ function clearLines() {
     y++
   }
   if (cleared > 0) {
-    score.value += cleared * 100
+    score.value += cleared * 5
     playSound(800, 0.3)
   }
 }
