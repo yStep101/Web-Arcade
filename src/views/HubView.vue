@@ -37,10 +37,12 @@ import { ref, computed } from 'vue'
 import pongImg from '../assets/images/pong.png'
 import snakeImg from '../assets/images/snake.png'
 import pacmanImg from '../assets/images/pacman.png'
+import tetrisImg from '../assets/images/tetris.png'
 
 const games = [
   { title: 'Pong (2 Player)', link: '/game/pong', thumbnail: pongImg },
   { title: 'Snake', link: '/game/snake', thumbnail: snakeImg },
+  { title: 'Tetris', link: '/game/tetris', thumbnail: tetrisImg },
   { title: 'Racer Game', link: '/game/racer', thumbnail: pacmanImg },
 ]
 
