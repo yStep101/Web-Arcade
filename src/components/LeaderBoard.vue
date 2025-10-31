@@ -1,58 +1,96 @@
 <template>
   <div class="leaderboard">
-    <h2>🏆 Local Leaderboard 🏆</h2>
-    <ul>
-      <li v-for="(score, index) in scores" :key="index">
-        <span class="rank">{{ index + 1 }}.</span>
-        <span class="name">{{ score.name }}</span>
-        <span class="points">{{ score.points }}</span>
-      </li>
-    </ul>
+    <h1>🏆 Global Leaderboard</h1>
+
+    <div v-if="loading" class="loading">Loading...</div>
+
+    <div v-else>
+      <div v-for="(entries, game) in groupedScores" :key="game" class="game-block">
+        <h2>{{ game }}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(entry, i) in entries.slice(0, 10)" :key="i">
+              <td>{{ i + 1 }}</td>
+              <td>{{ entry.username }}</td>
+              <td>{{ entry.score }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-const scores = [
-  { name: 'Rohan', points: 120 },
-  { name: 'Diya', points: 90 },
-  { name: 'Player3', points: 70 },
-]
+import { ref, onMounted, computed } from 'vue'
+import { getLeaderboard } from '@/utils/leaderboard'
+
+const scores = ref([])
+const loading = ref(true)
+
+onMounted(async () => {
+  try {
+    scores.value = await getLeaderboard()
+  } catch (err) {
+    console.error(err)
+  } finally {
+    loading.value = false
+  }
+})
+
+const groupedScores = computed(() => {
+  const groups = {}
+  for (const entry of scores.value) {
+    if (!groups[entry.game]) groups[entry.game] = []
+    groups[entry.game].push(entry)
+  }
+  for (const g in groups) {
+    groups[g].sort((a, b) => b.score - a.score)
+  }
+  return groups
+})
 </script>
 
 <style scoped>
 .leaderboard {
-  background: linear-gradient(180deg, #0f0f2d 0%, #0a0a0f 100%);
-  border: 2px solid #ff00c8;
-  padding: 1.5rem;
-  border-radius: 16px;
-  max-width: 400px;
-  margin: 0 auto;
-  color: #fff;
-  box-shadow: 0 0 15px #ff00c8;
+  font-family: 'Orbitron', sans-serif;
+  color: white;
+  padding: 20px;
+  text-align: center;
+  background: radial-gradient(circle at center, #000 70%, #020d10);
+  min-height: 100vh;
 }
-
-h2 {
-  color: #ff00c8;
-  text-shadow: 0 0 10px #ff00c8;
+h1 {
+  color: #00ffcc;
+  margin-bottom: 20px;
 }
-
-ul {
-  list-style: none;
-  padding: 0;
+.game-block {
+  background: rgba(0, 0, 0, 0.8);
+  margin: 20px auto;
+  padding: 20px;
+  width: 80%;
+  border: 2px solid #00ffcc;
+  border-radius: 12px;
+  box-shadow: 0 0 25px #00ffcc;
 }
-
-li {
-  margin: 0.5rem 0;
-  font-size: 1rem;
-  display: flex;
-  justify-content: space-between;
-  text-shadow: 0 0 5px #00fff7;
+table {
+  width: 100%;
+  border-collapse: collapse;
 }
-
-.rank {
-  color: #ff00c8;
+th,
+td {
+  padding: 10px;
+  border-bottom: 1px solid #00ffcc;
 }
-.points {
-  color: #00fff7;
+.loading {
+  color: #00ffcc;
+  font-size: 20px;
 }
 </style>

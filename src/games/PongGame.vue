@@ -28,6 +28,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useScoreSubmit } from '@/composables/useScoreSubmit'
+
+const { trySubmit, resetBest } = useScoreSubmit('Pong')
 
 const router = useRouter()
 const canvas = ref(null)
@@ -110,6 +113,7 @@ function resetGame() {
   pauseGame()
   leftScore.value = 0
   rightScore.value = 0
+  resetBest()
   initGame()
 }
 
@@ -182,10 +186,12 @@ function moveBall() {
     rightScore.value++
     playScore()
     scoreDelay(false)
+    trySubmit(rightScore.value)
   } else if (ball.x > 800) {
     leftScore.value++
     playScore()
     scoreDelay(true)
+    trySubmit(leftScore.value)
   }
 }
 

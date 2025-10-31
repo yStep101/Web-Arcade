@@ -57,6 +57,7 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useScoreSubmit } from '@/composables/useScoreSubmit'
 
 // --- Config ---
 const baseWidth = 720
@@ -71,6 +72,7 @@ const speed = ref(2)
 const gameState = ref('menu') // 'menu' | 'playing' | 'paused' | 'over'
 const highScoreKey = 'racer_highscore_v1'
 const highScore = ref(parseInt(localStorage.getItem(highScoreKey) || '0'))
+const { trySubmit, resetBest } = useScoreSubmit('Racer')
 const spriteScale = {
   player: 1.5,
   enemy: 1.4,
@@ -123,6 +125,7 @@ let frame = 0
 // }
 
 function resetGame() {
+  resetBest()
   const settings = difficultySettings[difficulty.value]
   score.value = 0
   lives.value = settings.lives
@@ -369,6 +372,7 @@ function loop() {
 
   // --- Score growth ---
   score.value += 0.015 * speed.value
+  trySubmit(score.value)
 
   // --- Render everything ---
   render(spriteScale)
